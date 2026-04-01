@@ -1,7 +1,24 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getSupabasePublicEnv } from "@/lib/supabase/env";
-import { isUserAdminEmail } from "@/lib/admin/allowlist";
+
+// Inline env + allowlist checks so Edge middleware does not import @/lib/* (Vercel
+// flags those modules as unsupported in the Edge bundle). Logic matches
+// src/lib/supabase/env.ts and src/lib/admin/allowlist.ts.
+function getSupabasePublicEnv(): { url: string; anonKey: string } | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+}
+
+function isUserAdminEmail(email: string | undefined | null): boolean {
+  if (!email) return false;
+  const allow = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return allow.includes(email.trim().toLowerCase());
+}
 
 const LOGIN = "/app/login";
 const CALLBACK = "/app/auth/callback";
